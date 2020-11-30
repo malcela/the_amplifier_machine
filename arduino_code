@@ -1,0 +1,199 @@
+/*___________________________
+
+Code for controlling servomotors 
+connected to ultrasonic sensors.
+
+05.02.2020
+@antonio_hof
+
+______________________________*/
+
+
+#include <Servo.h>
+
+// SONAR ONE
+int trigPin1 = 9;    // Trigger 1 
+int echoPin1 = 10;    // Echo1
+float duration1, cm1;
+float smoothCm1 = 0;
+float smoothStrength = 3;
+int delayFrames = 250;
+// SONAR TWO
+int trigPin2 = 11;    // Trigger 2
+int echoPin2 = 12;    // Echo2
+float duration2, cm2;
+float smoothCm2 = 0;
+bool peoplePresent = false;
+int NoPeopleCountFrames;
+int peopleCounterFrames;
+// state
+bool randomState = true;
+int randomServosPos = 0;    // variable to store the servo position
+int randomServoState = 0;
+int randomServoCounterTimer = 0;
+Servo servo1;  // create servo object to control a servo
+Servo servo2;  // create servo object to control a servo
+Servo servo3;  // create servo object to control a servo
+Servo servo4;  // create servo object to control a servo
+Servo servo5;  // create servo object to control a servo
+Servo servo6;  // create servo object to control a servo
+unsigned long currentTime; 
+unsigned long startTime; 
+unsigned long animationTime; 
+void setup() {
+  //Serial Port begin
+  Serial.begin (9600);
+  //Define inputs and outputs
+  pinMode(trigPin1, OUTPUT);
+  pinMode(echoPin1, INPUT);
+  delayMicroseconds(100);
+  pinMode(trigPin2, OUTPUT);
+  pinMode(echoPin2, INPUT);
+  NoPeopleCountFrames = 0;
+  currentTime = 0;
+  
+  servo1.attach(2);  // attaches the servo on pin 9 to the servo object
+  servo2.attach(3);  // attaches the servo on pin 9 to the servo object
+  
+  servo3.attach(4);  // attaches the servo on pin 9 to the servo object
+  servo4.attach(5);  // attaches the servo on pin 9 to the servo object
+  servo5.attach(6);  // attaches the servo on pin 9 to the servo object
+  servo6.attach(7);  // attaches the servo on pin 9 to the servo object
+  cm2 = 180;
+  cm1 = 180;
+  smoothCm1 = 180;
+  smoothCm2 = 180;
+}
+void cleanSonarPin1() {
+    // The sensor is triggered by a HIGH pulse of 10 or more microseconds.
+    // Give a short LOW pulse beforehand to ensure a clean HIGH pulse:
+    digitalWrite(trigPin1, LOW);
+    delayMicroseconds(5);
+    digitalWrite(trigPin1, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(trigPin1, LOW);
+}
+void readSonarPin1() {
+  // Read the signal from the sensor: a HIGH pulse whose
+  // duration is the time (in microseconds) from the sending
+  // of the ping to the reception of its echo off of an object.
+  pinMode(echoPin1, INPUT);
+ 
+  // Convert the time into a distance
+  duration1 = pulseIn(echoPin1, HIGH);
+  cm1 = (duration1/2) / 29.1;     // Divide by 29.1 or multiply by 0.0343
+  
+  delay(10);             // tiny delay to give ADC time to recover
+  smoothCm1 = smooth(cm1, smoothCm1);
+  Serial.print("1 - ");
+  Serial.println(smoothCm1);
+}
+void cleanSonarPin2() {
+    // The sensor is triggered by a HIGH pulse of 10 or more microseconds.
+    // Give a short LOW pulse beforehand to ensure a clean HIGH pulse:
+    digitalWrite(trigPin2, LOW);
+    delayMicroseconds(5);
+    digitalWrite(trigPin2, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(trigPin2, LOW);
+}
+void readSonarPin2() {
+  // Read the signal from the sensor: a HIGH pulse whose
+  // duration is the time (in microseconds) from the sending
+  // of the ping to the reception of its echo off of an object.
+  pinMode(echoPin2, INPUT);
+ 
+  // Convert the time into a distance
+  duration2 = pulseIn(echoPin2, HIGH);
+  cm2 = (duration2/2) / 29.1;     // Divide by 29.1 or multiply by 0.0343
+  
+  delay(10);             // tiny delay to give ADC time to recover
+  smoothCm2 = smooth(cm2, smoothCm2);
+  Serial.print("2 - ");
+  Serial.println(smoothCm2);
+}
+ 
+void loop() {
+  cleanSonarPin1();
+  readSonarPin1();
+  delay(1);             // tiny delay to give ADC time to recover
+  cleanSonarPin2();
+  readSonarPin2();
+  if (randomState) {
+    if (randomServoState == 0) {
+      randomServosPos = randomServosPos + 5;
+      delay(5);
+    }
+    if (randomServoState == 1) {
+      randomServosPos = randomServosPos - 5;
+      delay(5);
+    }
+    
+    randomServoCounterTimer++;
+    if (randomServoState == 0 && randomServoCounterTimer > 20) {
+      Serial.println("MODE 0");
+        randomServoState = 1;
+        randomServoCounterTimer = 0;
+    }
+    if (randomServoState == 1 && randomServoCounterTimer > 20) {
+        Serial.println("MODE 1");
+        randomServoState = 0;
+        randomServoCounterTimer = 0;
+    }
+    
+    writeServosRandom();
+  } else {
+    writeServosInteraction();
+    delay(delayFrames);
+  }
+  checkForPeople();
+  if (NoPeopleCountFrames > 10 && peoplePresent == true) {
+     peoplePresent = false;
+     NoPeopleCountFrames = 0;
+     peopleCounterFrames = 0;
+     randomState = true;
+     Serial.println("random state!");
+  }
+  if (peopleCounterFrames > 30 && peoplePresent == false) {
+    peoplePresent = true;
+    Serial.println("PEOPLE PRESENT!");
+    peopleCounterFrames = 0;
+    NoPeopleCountFrames = 0;
+    randomState = false;
+  }
+  
+  // check for people
+  currentTime = millis();  //get the current time
+  if (currentTime - startTime >= animationTime)  { //test whether the period has elapsed
+    
+  }
+}
+void checkForPeople () {
+  if (smoothCm2 < 120 || smoothCm1 < 120) {
+    peopleCounterFrames++;
+  } else {
+    NoPeopleCountFrames++;
+  }
+}
+void writeServosRandom() {
+    servo1.write(randomServosPos % 180);              // tell servo to go to position in variable 'pos'
+    servo2.write(randomServosPos % 180);              // tell servo to go to position in variable 'pos'
+    servo3.write(randomServosPos % 180);              // tell servo to go to position in variable 'pos'
+    servo4.write((180 - randomServosPos) % 180);              // tell servo to go to position in variable 'pos'
+    servo5.write((180 - randomServosPos) % 180);              // tell servo to go to position in variable 'pos'
+    servo6.write((180 - randomServosPos) % 180);              // tell servo to go to position in variable 'pos'
+  
+}
+void writeServosInteraction() {
+  
+  servo1.write(round(smoothCm1 * 2));              // tell servo to go to position in variable 'pos'
+  servo2.write(round(smoothCm1 * 2));              // tell servo to go to position in variable 'pos'
+  servo3.write(round(smoothCm1 * 2));              // tell servo to go to position in variable 'pos'
+  servo4.write(round(smoothCm2* 2));              // tell servo to go to position in variable 'pos'
+  servo5.write(round(smoothCm2 * 2));              // tell servo to go to position in variable 'pos'
+  servo6.write(round(smoothCm2 * 2));              // tell servo to go to position in variable 'pos'
+}
+ 
+float smooth(int t_rawVal, float t_smoothedVal) {
+    return  t_smoothedVal + ((t_rawVal - t_smoothedVal) + 0.5) / smoothStrength;  // +0.5 for rounding
+}
